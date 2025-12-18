@@ -5,6 +5,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
+import './utils/database.js';
+import authRoutes from './routes/auth.js';
 
 dotenv.config();
 
@@ -39,6 +41,8 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
+
+app.use('/api/auth', authRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
