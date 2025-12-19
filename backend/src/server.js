@@ -44,15 +44,56 @@ app.get('/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 
+// Import additional routes
+import contactRoutes from './routes/contacts.js';
+import messageRoutes from './routes/messages.js';
+
+app.use('/api/contacts', contactRoutes);
+app.use('/api/messages', messageRoutes);
+
+// Store active connections
+const activeUsers = new Map(); // userId -> socketId
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+  // User authentication via socket
+  socket.on('authenticate', (userId) => {
+    activeUsers.set(userId, socket.id);
+    socket.userId = userId;
+    console.log(`User ${userId} authenticated with socket ${socket.id}`);
   });
 
-  // Add more socket event handlers here
+  // Handle new message
+  socket.on('send_message', (data) => {
+    const { receiverId, message } = data;
+    const receiverSocketId = activeUsers.get(receiverId);
+    
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('new_message', message);
+    }
+  });
+
+  // Handle typing indicator
+  socket.on('typing', (data) => {
+    const { receiverId, isTyping } = data;
+    const receiverSocketId = activeUsers.get(receiverId);
+    
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('user_typing', {
+        userId: socket.userId,
+        isTyping
+      });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    if (socket.userId) {
+      activeUsers.delete(socket.userId);
+      console.log(`User ${socket.userId} disconnected`);
+    }
+  });
 });
 
 // Start server
