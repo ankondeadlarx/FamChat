@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import './utils/database.js';
 import authRoutes from './routes/auth.js';
 
@@ -22,9 +23,11 @@ const io = new Server(httpServer, {
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173'
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true // Allow cookies to be sent
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 // Rate limiting
 const limiter = rateLimit({
