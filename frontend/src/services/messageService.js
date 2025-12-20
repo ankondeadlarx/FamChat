@@ -2,10 +2,8 @@ const API_URL = 'http://localhost:3000/api';
 
 class MessageService {
   getAuthHeader() {
-    const token = localStorage.getItem('token');
     return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Content-Type': 'application/json'
     };
   }
 
@@ -13,6 +11,7 @@ class MessageService {
     const response = await fetch(`${API_URL}/messages/send`, {
       method: 'POST',
       headers: this.getAuthHeader(),
+      credentials: 'include', // Send cookie
       body: JSON.stringify({ receiverId, encryptedContent, iv })
     });
 
@@ -23,7 +22,8 @@ class MessageService {
 
   async getConversation(contactId) {
     const response = await fetch(`${API_URL}/messages/conversation/${contactId}`, {
-      headers: this.getAuthHeader()
+      headers: this.getAuthHeader(),
+      credentials: 'include'
     });
 
     const data = await response.json();
@@ -34,7 +34,8 @@ class MessageService {
   async markAsRead(messageId) {
     const response = await fetch(`${API_URL}/messages/read/${messageId}`, {
       method: 'POST',
-      headers: this.getAuthHeader()
+      headers: this.getAuthHeader(),
+      credentials: 'include'
     });
 
     const data = await response.json();

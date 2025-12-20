@@ -2,10 +2,8 @@ const API_URL = 'http://localhost:3000/api';
 
 class ContactService {
   getAuthHeader() {
-    const token = localStorage.getItem('token');
     return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Content-Type': 'application/json'
     };
   }
 
@@ -13,6 +11,7 @@ class ContactService {
     const response = await fetch(`${API_URL}/contacts/add`, {
       method: 'POST',
       headers: this.getAuthHeader(),
+      credentials: 'include', // Send cookie
       body: JSON.stringify({ username })
     });
 
@@ -23,7 +22,8 @@ class ContactService {
 
   async getContacts() {
     const response = await fetch(`${API_URL}/contacts/list`, {
-      headers: this.getAuthHeader()
+      headers: this.getAuthHeader(),
+      credentials: 'include'
     });
 
     const data = await response.json();
@@ -33,7 +33,8 @@ class ContactService {
 
   async getPendingRequests() {
     const response = await fetch(`${API_URL}/contacts/pending`, {
-      headers: this.getAuthHeader()
+      headers: this.getAuthHeader(),
+      credentials: 'include'
     });
 
     const data = await response.json();
@@ -44,7 +45,8 @@ class ContactService {
   async acceptContact(contactId) {
     const response = await fetch(`${API_URL}/contacts/accept/${contactId}`, {
       method: 'POST',
-      headers: this.getAuthHeader()
+      headers: this.getAuthHeader(),
+      credentials: 'include'
     });
 
     const data = await response.json();
@@ -55,7 +57,8 @@ class ContactService {
   async rejectContact(contactId) {
     const response = await fetch(`${API_URL}/contacts/reject/${contactId}`, {
       method: 'POST',
-      headers: this.getAuthHeader()
+      headers: this.getAuthHeader(),
+      credentials: 'include'
     });
 
     const data = await response.json();
@@ -66,7 +69,8 @@ class ContactService {
   async removeContact(contactId) {
     const response = await fetch(`${API_URL}/contacts/remove/${contactId}`, {
       method: 'DELETE',
-      headers: this.getAuthHeader()
+      headers: this.getAuthHeader(),
+      credentials: 'include'
     });
 
     const data = await response.json();

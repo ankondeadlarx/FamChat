@@ -7,6 +7,7 @@ class AuthService {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include', // Send cookies
       body: JSON.stringify({ username, email, password, displayName }),
     });
 
@@ -16,8 +17,7 @@ class AuthService {
       throw new Error(data.error || 'Registration failed');
     }
 
-    // Store token
-    localStorage.setItem('token', data.token);
+    // Store user info (token is in httpOnly cookie)
     localStorage.setItem('user', JSON.stringify(data.user));
 
     return data;
@@ -29,6 +29,7 @@ class AuthService {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include', // Send cookies
       body: JSON.stringify({ username, password }),
     });
 
@@ -38,20 +39,28 @@ class AuthService {
       throw new Error(data.error || 'Login failed');
     }
 
-    // Store token
-    localStorage.setItem('token', data.token);
+    // Store user info (token is in httpOnly cookie)
     localStorage.setItem('user', JSON.stringify(data.user));
 
     return data;
   }
 
-  logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  async logout() {
+    try {
+      await fetch(`${API_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('user');
+    }
   }
 
   getToken() {
-    return localStorage.getItem('token');
+    // Token is in httpOnly cookie, not accessible from JavaScript
+    return null;
   }
 
   getUser() {
@@ -60,17 +69,13 @@ class AuthService {
   }
 
   isAuthenticated() {
-    return !!this.getToken();
+    // Check if user info exists (token is in cookie)
+    return !!this.getUser();
   }
 
   async getProfile() {
-    const token = this.getToken();
-    if (!token) throw new Error('Not authenticated');
-
     const response = await fetch(`${API_URL}/auth/profile`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      credentials: 'include' // Send cookie
     });
 
     const data = await response.json();
