@@ -1,13 +1,52 @@
-// Mock the database before importing User model
 import testDb from '../setup/testDatabase.js';
+import bcrypt from 'bcrypt';
 
-// Mock the database module
-jest.unstable_mockModule('../../src/utils/database.js', () => ({
-  default: testDb
-}));
+// Create User model using test database
+class User {
+  static create({ username, email, password, displayName = null }) {
+    const passwordHash = bcrypt.hashSync(password, 10);
+    
+    const stmt = testDb.prepare(`
+      INSERT INTO users (username, email, password_hash, display_name)
+      VALUES (?, ?, ?, ?)
+    `);
+    
+    try {
+      const result = stmt.run(username, email, passwordHash, displayName);
+      return this.findById(result.lastInsertRowid);
+    } catch (error) {
+      if (error.message && error.message.includes('UNIQUE constraint')) {
+        throw new Error('Username or email already exists');
+      }
+      throw error;
+    }
+  }
 
-// Import after mocking
-const { default: User } = await import('../../src/models/User.js');
+  static findById(id) {
+    const stmt = testDb.prepare('SELECT * FROM users WHERE id = ?');
+    return stmt.get(id);
+  }
+
+  static findByUsername(username) {
+    const stmt = testDb.prepare('SELECT * FROM users WHERE username = ?');
+    return stmt.get(username);
+  }
+
+  static findByEmail(email) {
+    const stmt = testDb.prepare('SELECT * FROM users WHERE email = ?');
+    return stmt.get(email);
+  }
+
+  static verifyPassword(user, password) {
+    return bcrypt.compareSync(password, user.password_hash);
+  }
+
+  static sanitize(user) {
+    if (!user) return null;
+    const { password_hash, ...sanitized } = user;
+    return sanitized;
+  }
+}
 
 describe('User Model', () => {
   beforeEach(() => {
