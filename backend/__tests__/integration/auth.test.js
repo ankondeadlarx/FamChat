@@ -62,20 +62,27 @@ authRoutes.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const user = User.create({ username, email, password, displayName: displayName || username });
-    const token = jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET || 'test-secret', { expiresIn: '7d' });
-    
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    try {
+      const user = User.create({ username, email, password, displayName: displayName || username });
+      const token = jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET || 'test-secret', { expiresIn: '7d' });
+      
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      });
 
-    res.status(201).json({
-      message: 'User registered successfully',
-      user: User.sanitize(user)
-    });
+      res.status(201).json({
+        message: 'User registered successfully',
+        user: User.sanitize(user)
+      });
+    } catch (createError) {
+      if (createError.message.includes('already exists')) {
+        return res.status(400).json({ error: createError.message });
+      }
+      throw createError;
+    }
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
