@@ -14,7 +14,7 @@ class User {
       const result = stmt.run(username, email, passwordHash, displayName || username);
       return this.findById(result.lastInsertRowid);
     } catch (error) {
-      if (error.code === 'SQLITE_CONSTRAINT') throw new Error('Username or email already exists');
+      if (error.message && error.message.includes('UNIQUE constraint')) throw new Error('Username or email already exists');
       throw error;
     }
   }
