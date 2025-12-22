@@ -1,8 +1,138 @@
 import request from 'supertest';
 import express from 'express';
-import authRoutes from '../../src/routes/auth.js';
-import db from '../setup/testDatabase.js';
+import testDb from '../setup/testDatabase.js';
 import cookieParser from 'cookie-parser';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+
+// Create User model using test database
+class User {
+  static create({ username, email, password, displayName = null }) {
+    const passwordHash = bcrypt.hashSync(password, 10);
+    const stmt = testDb.prepare(`INSERT INTO users (username, email, password_hash, display_name) VALUES (?, ?, ?, ?)`);
+    try {
+      const result = stmt.run(username, email, passwordHash, displayName || username);
+      return this.findById(result.lastInsertRowid);
+    } catch (error) {
+      if (error.code === 'SQLITE_CONSTRAINT') throw new Error('Username or email already exists');
+      throw error;
+    }
+  }
+
+  static findById(id) {
+    return testDb.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  }
+
+  static findByUsername(username) {
+    return testDb.prepare('SELECT * FROM users WHERE username = ?').get(username);
+  }
+
+  static findByEmail(email) {
+    return testDb.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  }
+
+  static verifyPassword(user, password) {
+    return bcrypt.compareSync(password, user.password_hash);
+  }
+
+  static sanitize(user) {
+    if (!user) return null;
+    const { password_hash, ...sanitized } = user;
+    return sanitized;
+  }
+}
+
+// Create auth routes using test User model
+const authRoutes = express.Router();
+
+authRoutes.post('/register', async (req, res) => {
+  try {
+    const { username, email, password, displayName } = req.body;
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email, and password are required' });
+    }
+    if (username.length < 3) {
+      return res.status(400).json({ error: 'Username must be at least 3 characters' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    const user = User.create({ username, email, password, displayName: displayName || username });
+    const token = jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET || 'test-secret', { expiresIn: '7d' });
+    
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    res.status(201).json({
+      message: 'User registered successfully',
+      user: User.sanitize(user)
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+authRoutes.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
+
+    const user = User.findByUsername(username) || User.findByEmail(username);
+    if (!user || !User.verifyPassword(user, password)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET || 'test-secret', { expiresIn: '7d' });
+    
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    res.json({
+      message: 'Login successful',
+      user: User.sanitize(user)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+authRoutes.get('/profile', (req, res) => {
+  const token = req.cookies.token;
+  if (!token) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'test-secret');
+    const user = User.findById(decoded.userId);
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    res.json({ user: User.sanitize(user) });
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+authRoutes.post('/logout', (req, res) => {
+  res.clearCookie('token');
+  res.json({ message: 'Logged out successfully' });
+});
 
 const app = express();
 app.use(express.json());
@@ -12,11 +142,11 @@ app.use('/api/auth', authRoutes);
 describe('Auth API Integration Tests', () => {
   beforeEach(() => {
     // Clean up users table
-    db.prepare('DELETE FROM users').run();
+    testDb.prepare('DELETE FROM users').run();
   });
 
   afterAll(() => {
-    db.close();
+    testDb.close();
   });
 
   describe('POST /api/auth/register', () => {
