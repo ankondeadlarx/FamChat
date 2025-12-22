@@ -1,20 +1,7 @@
 import Database from 'better-sqlite3';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Create test database
-const dbPath = path.join(__dirname, '../../data/test.db');
-
-// Clean up test database if it exists
-if (fs.existsSync(dbPath)) {
-  fs.unlinkSync(dbPath);
-}
-
-const db = new Database(dbPath);
+// Use in-memory database for tests to avoid file locking issues
+const db = new Database(':memory:');
 
 // Create tables
 db.exec(`
